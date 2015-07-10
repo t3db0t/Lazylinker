@@ -1,21 +1,48 @@
+console.log("Lazylinker v0.1");
+
 var re = new RegExp("{(.+)}");
 var googleAPIKey = "AIzaSyDiVPvHjm4GAR_mwgumfjJ7N5Kj9BJHXlI";
 var searchEngineID = "007060078685401029577:_x7ctz8mxko";
-var googleSearchURLBase = "https://www.googleapis.com/customsearch/v1?";
-var googleSearchURL = googleSearchURLBase + "key=" + googleAPIKey + "?cx=" + searchEngineID;
+var testEngineID = "017576662512468239146:omuauf_lfve";
+var googleSearchURLBase = "https://www.googleapis.com/customsearch/v1";
+var googleAuthParams = "?key=" + googleAPIKey + "?cx=" + testEngineID; //searchEngineID;
+var googleSearchURL = googleSearchURLBase + googleAuthParams;
 
-var doSearch = function(q){
+var doSearch = function(q, targetElement, position){
 	var xhr = new XMLHttpRequest();
-	var url = googleSearchURL + "?q=" + q;
-	xhr.open("GET", url, true);
-	xhr.onreadystatechange = function() {
-		if (xhr.readyState == 4) {
-    		// WARNING! Might be injecting a malicious script!
-    		console.log(xhr.responseText);
+	var qEncoded = encodeURIComponent(q);
+	var url = googleSearchURL + "?q=" + qEncoded;
+
+	$.get("https://www.googleapis.com/customsearch/v1", {
+			key: googleAPIKey,
+			cx: searchEngineID,
+			q: qEncoded
+		}, function(data){
+			// SUCCESS, update text entry
+			var resultURL = data.items[0].formattedUrl;
+
+			var newText = $(targetElement).val().replace(re, resultURL);
+			$(targetElement).val(newText);
+			// ensure that cursor is at the end of the new replacement string
+			// TODO: compensate for length of user-specified search enclosure characters
+			targetElement.selectionStart = position - 2 - q.length + resultURL.length;
+			targetElement.selectionEnd = targetElement.selectionStart;
 		}
-	}
-	xhr.send();
+	);
 }
+
+/*
+
+Need to think about how to do this.  Facebook and Twitter have text entry mechanisms
+that don't use <input> or <textarea> elements, so we have to:
+
+a) watch for general keyboard input from the document. Problems:
+	- we need the whole 'body' of text in the input area
+	- how do we replace the text?
+b) hardcode support for Facebook and Twitter??
+
+*/
+
 
 $('input[type=text], textarea').on('input', function(){
 	var element = $(this);
@@ -24,30 +51,12 @@ $('input[type=text], textarea').on('input', function(){
 	// console.log(this);
 	var match = text.match(re);
 	var searchText = match && match[1];
-	console.log(match);
+	
 	if(searchText){
 		var pos = element[0].selectionStart;
 
-		doSearch(searchText);
-
-		// var newText = text.replace(re, "BLOOP");
-		// $(this).val(newText);
-		// $(this)[0].selectionStart = pos - 1;
-		// $(this)[0].selectionEnd = pos - 1;
+		// TODO: immediately replace with "{Searching...}" message,
+		// then replace that when search is done. Could also put errors there.
+		doSearch(searchText, this, pos);
 	}
-	
 });
-
-// chrome.extension.sendMessage({}, function(response) {
-// 	var readyStateCheckInterval = setInterval(function() {
-// 	if (document.readyState === "complete") {
-// 		clearInterval(readyStateCheckInterval);
-
-// 		// ----------------------------------------------------------
-// 		// This part of the script triggers when page is done loading
-// 		console.log("Hello. This message was sent from scripts/inject.js");
-// 		// ----------------------------------------------------------
-
-// 	}
-// 	}, 10);
-// });
